@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% load isocustomtags %} 
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-danger text-white">
+        <h3>Step 4: Complaint Details</h3>
+    </div>
+    <div class="card-body">
+        <p><strong>Customer:</strong> {{ customer.name }}</p>
+        <form method="post">
+        <input type="hidden" name="quotation_id" value="{{ quotationId }}">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="mb-4">
+        <label for="{{ field.id_for_label }}" class="form-label fw-bold">{{ field.label }}</label>
+        {% if field.name == 'quotation_date' %}
+            <input type="date" class="form-control" id="{{ field.id_for_label }}"
+                   name="{{ field.name }}"
+                   value="{{ field.value|date:'Y-m-d'|default_if_none:'' }}">
+        {% elif field.name == 'quotation_description' %}
+            <input type="text" class="form-control" id="{{ field.id_for_label }}"
+                   name="{{ field.name }}"
+                   value="{{ field.value|default_if_none:'' }}"
+                   placeholder="Enter {{ field.label|lower }}">
+        {% else %}
+            {{ field|as_crispy_field }}
+        {% endif %}
+        {% if field.help_text %}
+        <div class="form-text text-muted">{{ field.help_text }}</div>
+        {% endif %}
+    </div>
+
+    {% if field.name == 'quotation_description' %}
+        <!-- Insert your table view -->
+        {% for table in tables_data %}
+        <div class="card my-4">
+            <div class="card-header">
+                <h5 class="mb-0">{{ table.table.table_name }}</h5>
+            </div>
+            <div class="card-body p-2">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>S.no</th>
+                                {% for header in table.headers %}
+                                    <th>{{ header.field_name }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in table.rows %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                {% for header in table.headers %}
+                                    <td>{{ row|get:header.id|default:"" }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="{{ table.headers|length|add:1 }}" class="text-center">No data available</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% endif %}
+    {% endfor %}
+    <button type="submit" class="btn btn-danger">Save as Document</button>
+</form>
+
+    </div>
+</div>
+
+<script>
+$(document).ready(function () {
+
+    $('.requiredField').addClass('hide');
+    if (CKEDITOR.instances['id_quotation_bank_details']) {
+        CKEDITOR.instances['id_quotation_bank_details'].setData(
+            `Bank details<br>
+            SBI Simmakal Branch<br>
+            A/c Name: Jothi Generators<br>
+            A/c No: 67134784440<br>
+            IFSC Code: SBIN0070008<br>
+            MICR: 625002503`
+        );
+    }
+
+    if (CKEDITOR.instances['id_quotation_subject']) {
+        CKEDITOR.instances['id_quotation_subject'].setData(`Subject: Quotation for your`);
+    }
+
+    if (CKEDITOR.instances['id_quotation_description']) {
+        CKEDITOR.instances['id_quotation_description'].setData(`With reference to the above discussion had with you we are furnishing the quotation for your`);
+    }
+    else{
+        $('#id_quotation_description').val(`With reference to the above discussion had with you we are furnishing the quotation for your`);
+    }
+
+    if (CKEDITOR.instances['id_quotation_signature']) {
+        CKEDITOR.instances['id_quotation_signature'].setData(`Thanking you<br>Assuring the Best Service Always...<br>For Jothi Generator<br><br>Srinivasan.B`);
+    }
+
+    if (CKEDITOR.instances['id_quotation_referrence']) {
+        CKEDITOR.instances['id_quotation_referrence'].setData(`We would request you to kindly send us the Order with 80% Spares advance to carry out the job.<br>Payment Cheque or DD in favor of "Jothi Generators".`);
+    }
+});
+</script>
+<style>
+.hide{display:none!important}
+</style>
+{% endblock %}

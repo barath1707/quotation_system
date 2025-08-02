@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="card mt-4">
+    <div class="card-header bg-primary text-white">
+        <h3>Complaint Preview</h3>
+    </div>
+    <div class="card-body">
+        <h5>Customer Information</h5>
+        <p><strong>Name:</strong> {{ customer.name }}</p>
+        <p><strong>Address:</strong> {{ customer.address }}</p>
+
+        <h5 class="mt-3">Complaint Details</h5>
+        <p><strong>Date:</strong> {{ complaint.date }}</p>
+        <p><strong>Subject:</strong> {{ complaint.subject }}</p>
+        <p><strong>Description:</strong> {{ complaint.description }}</p>
+
+        {% for table in table_data %}
+            <h5 class="mt-4">Quotation Table</h5>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        {% for header in table.headers %}
+                            <th>{{ header }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in table.rows %}
+                        <tr>
+                            {% for cell in row %}
+                                <td>{{ cell }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+
+        <h5 class="mt-3">Additional Information</h5>
+        <p><strong>Note:</strong> {{ complaint.note }}</p>
+        <p><strong>Bank Details:</strong> {{ complaint.bank_details }}</p>
+        <p><strong>Signature:</strong> {{ complaint.signature }}</p>
+
+        <div class="mt-4">
+            <a href="{% url 'generate_doc' complaint.id %}" class="btn btn-success">Download DOCX</a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

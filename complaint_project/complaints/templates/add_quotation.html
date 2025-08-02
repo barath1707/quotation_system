@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-info text-white">
+        <h3>Step 2: Quotation Name</h3>
+    </div>
+    <div class="card-body">
+        <form method="post">
+        <input type="hidden" name="customer_id" value="{{ customerId }}">
+        <input type="hidden" name="quotation_id" value="{{ quotationId }}">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <button type="submit" class="btn btn-primary">Next → Add Table</button>
+        </form><hr>
+        <h4>Quotation List</h4>
+        <table id="tblAboutList" class="table table-striped table-bordered width-full isoViewTbl">
+            <thead>
+                <tr>
+                    <th class="all">Customer Name</th>
+                    <th class="all">Quotation Name</th>
+                    <th class="all text-center statusTd">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for quotation in quotationDetails %}
+                    <tr class="odd" id='{{ quotation.id}}'>
+                        <td class=""> {{ quotation.customer.customer_name}}</td>
+                        <td class=""> {{ quotation.quotation_name}}</td>
+                        <td class="text-nowrap text-center">                      
+                            <span>
+                                <a href="{% url 'add_cutomer_quotation' %}?customer_id={{ quotation.customer.id }}&quotation_id={{quotation.id}}" title="Edit">
+                                    <span><i class="fa fa-edit fa-lg"></i></span>
+                                </a>
+                            </span>
+                            <span class="ms-2">
+                                <a href="{% url 'add_table' %}?customer_id={{ quotation.customer.id }}&quotation_id={{quotation.id}}&table_id=0" title="Add">
+                                    <span><i class="fa fa-plus text-green fa-lg"></i></span>
+                                </a>
+                            </span>
+                        </td>
+                    </tr> 
+                {% empty %}
+					<tr>
+                        <td colspan="8" class="text-center">No record found</td>
+                    </tr>
+                {% endfor %}
+            
+            </tbody>
+        </table> 
+    </div>
+</div>
+{% endblock %}

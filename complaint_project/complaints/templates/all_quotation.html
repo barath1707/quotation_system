@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-info text-white">
+        <h3>All Quotation</h3>
+    </div>
+    <div class="card-body">      
+        <table id="tblAboutList" class="table table-striped table-bordered width-full isoViewTbl">
+            <thead>
+                <tr>
+                    <th class="all">Quotation Name</th>
+                    <th class="all text-center statusTd">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for quo_details in quotationDetails %}
+                    <tr class="odd" id='{{ quo_details.id}}'>
+                        <td class=""> {{ quo_details.quotation_name}}</td>
+                        <td class="text-nowrap text-center">                      
+                            <span>
+                                <a href="{% url 'add_complaint_details' %}?customer_id={{ request.session.customer_id }}&quotation_id={{quo_details.id}}" title="Edit">
+                                    <span><i class="fa fa-edit fa-lg"></i></span>
+                                </a>
+                            </span>
+                        </td>
+                    </tr> 
+                {% endfor %}
+            
+            </tbody>
+        </table>        
+    </div>
+</div>
+{% endblock %}

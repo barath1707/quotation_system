@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-info text-white">
+        <h3>All Customer</h3>
+    </div>
+    <div class="card-body">      
+        <table id="tblAboutList" class="table table-striped table-bordered width-full isoViewTbl">
+            <thead>
+                <tr>
+                    <th class="all">Customer Name</th>
+                    <th class="all text-center statusTd">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cus_details in customer %}
+                    <tr class="odd" id='{{ cus_details.id}}'>
+                        <td class=""> {{ cus_details.customer_name}}</td>
+                        <td class="text-nowrap text-center">                      
+                            <span>
+                                <a href="{% url 'create_customer' %}?customer_id={{ cus_details.id }}" title="Edit">
+                                    <span><i class="fa fa-edit fa-lg"></i></span>
+                                </a>
+                            </span>
+                        </td>
+                    </tr> 
+                {% endfor %}
+            
+            </tbody>
+        </table>        
+    </div>
+</div>
+{% endblock %}
