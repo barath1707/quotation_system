@@ -18,6 +18,7 @@ class CustomerQuotation(models.Model):
 class QuotationTableInstance(models.Model):
     quotation = models.ForeignKey('CustomerQuotation', models.DO_NOTHING)
     table_name = models.CharField(max_length=225)
+    table_total = models.FloatField(blank=True, null=True)
 
     class Meta:
         managed = False

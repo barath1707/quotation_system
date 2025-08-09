@@ -24,6 +24,11 @@
                                     <span><i class="fa fa-edit fa-lg"></i></span>
                                 </a>
                             </span>
+                            <span class="ms-2">
+                                <a href="{% url 'delete_customer' %}?customer_id={{ cus_details.id }}" title="Delete">
+                                    <span><i class="fa fa-times-circle text-danger fa-lg"></i></span>
+                                </a>
+                            </span>
                         </td>
                     </tr> 
                 {% endfor %}

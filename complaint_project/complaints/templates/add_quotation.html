@@ -39,6 +39,11 @@
                                     <span><i class="fa fa-plus text-green fa-lg"></i></span>
                                 </a>
                             </span>
+                            <span class="ms-2">
+                                <a href="{% url 'delete_quotation' %}?customer_id={{ quotation.customer.id }}&quotation_id={{quotation.id}}" title="Delete">
+                                    <span><i class="fa fa-times-circle text-danger fa-lg"></i></span>
+                                </a>
+                            </span>
                         </td>
                     </tr> 
                 {% empty %}

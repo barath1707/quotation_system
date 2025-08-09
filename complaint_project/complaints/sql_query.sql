@@ -71,3 +71,5 @@ ADD CONSTRAINT unique_field_per_row UNIQUE (field_id, row_id);
 
 -- Add row_id to your value table
 ALTER TABLE customer_quotation_details ADD COLUMN quotation_id INT NOT NULL AFTER id;
+
+ALTER TABLE quotation_table_instance ADD COLUMN table_total float NULL AFTER table_name;

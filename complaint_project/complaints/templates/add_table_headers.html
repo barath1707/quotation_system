@@ -12,6 +12,7 @@
         <input type="hidden" name="table_id" value="{{ tableId }}">
         <input type="hidden" name="quotation_id" value="{{ quotationId }}">
         <input type="hidden" name="field_id" value="{{ fieldId }}">
+        <input type="hidden" id="isoAmountFieldId" value="{{ isoAmountFieldId }}">
             {% csrf_token %}
             {{ forms|crispy }}
             <button type="submit" class="btn btn-info">Add Header</button>
@@ -55,4 +56,14 @@
         
     </div>
 </div>
+<script>
+    $(document).ready(function() {
+       if($('#isoAmountFieldId').val() == 'True') {
+           $('#id_field_type option[value="2"]').prop('disabled', true);
+        }
+        else {
+           $('#id_field_type option[value="2"]').prop('disabled', false);   
+        }
+    }); 
+</script>
 {% endblock %}

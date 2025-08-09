@@ -18,12 +18,19 @@
                 {% for quo_details in quotationDetails %}
                     <tr class="odd" id='{{ quo_details.id}}'>
                         <td class=""> {{ quo_details.quotation_name}}</td>
-                        <td class="text-nowrap text-center">                      
+                        <td class="text-nowrap text-center">   
+                        <div class="d-flex justify-content-center">                   
                             <span>
                                 <a href="{% url 'add_complaint_details' %}?customer_id={{ request.session.customer_id }}&quotation_id={{quo_details.id}}" title="Edit">
                                     <span><i class="fa fa-edit fa-lg"></i></span>
                                 </a>
                             </span>
+                             <span class="ms-2">
+                                <a href="{% url 'document_preview' %}?customer_id={{ request.session.customer_id }}&quotation_id={{quo_details.id}}" class="btn btn-xs btn-icon btn-circle bg-green" title="View">
+                                    <span><i class="fa fa-check text-white"></i></span>
+                                </a>
+                            </span>
+                            </div>
                         </td>
                     </tr> 
                 {% endfor %}

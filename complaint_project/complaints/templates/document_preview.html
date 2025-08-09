@@ -1,51 +1,164 @@
 {% extends 'base.html' %}
+{% load isocustomtags %} 
 {% block content %}
 
-<div class="card mt-4">
-    <div class="card-header bg-primary text-white">
-        <h3>Complaint Preview</h3>
-    </div>
-    <div class="card-body">
-        <h5>Customer Information</h5>
-        <p><strong>Name:</strong> {{ customer.name }}</p>
-        <p><strong>Address:</strong> {{ customer.address }}</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Preview</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            line-height: 1.5;
+        }
+       .header {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .date {
+            margin-bottom: 10px;
+        }
+        .to-section {
+            text-align: left !important;
+        }
+        .subject {
+            text-align: center;
+            font-weight: bold;
+            text-decoration: underline;
+            margin: 20px 0;
+        }
+        .reference {
+            text-align: right;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        .section {
+            margin: 15px 0;
+        }
+        .signature {
+            margin-top: 50px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
 
-        <h5 class="mt-3">Complaint Details</h5>
-        <p><strong>Date:</strong> {{ complaint.date }}</p>
-        <p><strong>Subject:</strong> {{ complaint.subject }}</p>
-        <p><strong>Description:</strong> {{ complaint.description }}</p>
-
-        {% for table in table_data %}
-            <h5 class="mt-4">Quotation Table</h5>
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        {% for header in table.headers %}
-                            <th>{{ header }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in table.rows %}
-                        <tr>
-                            {% for cell in row %}
-                                <td>{{ cell }}</td>
-                            {% endfor %}
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% endfor %}
-
-        <h5 class="mt-3">Additional Information</h5>
-        <p><strong>Note:</strong> {{ complaint.note }}</p>
-        <p><strong>Bank Details:</strong> {{ complaint.bank_details }}</p>
-        <p><strong>Signature:</strong> {{ complaint.signature }}</p>
-
-        <div class="mt-4">
-            <a href="{% url 'generate_doc' complaint.id %}" class="btn btn-success">Download DOCX</a>
+    <!-- Date & To Section -->
+    <div class="header">
+        <div class="date">{{ customerDeatils.quotation_date }}</div>
+        <div class="to-section">
+            <div>To:</div>
+            <div class ="ms-3">{{ customer.customer_name }}</div>
+            <div class ="ms-3">{{ customerDeatils.quotation_address|safe }}</div>
         </div>
     </div>
-</div>
+
+    <!-- Subject -->
+    <div class="subject">{{ customerDeatils.quotation_subject|safe }}</div>
+
+      <!-- Description -->
+    <div class="section">
+        <strong>Description:</strong>
+        <p>{{ customerDeatils.quotation_description |safe}}</p>
+    </div>
+
+ {% for table in tables_data %}
+    <div class="card my-4">
+        <div class="card-header">
+            <h5 class="mb-0">{{ table.table.table_name }}</h5>
+        </div>
+        <div class="card-body p-2">
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>S.no</th>
+                            {% for header in table.headers %}
+                                <th {% if header.field_type_id == 2 %} style="text-align:right;" {% endif %}>{{ header.field_name }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in table.rows %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            {% for header in table.headers %}
+                                <td {% if header.field_type_id == 2 %} style="text-align:right;" {% endif %}>
+                                    {% if header.field_type_id == 2 %}
+                                        {{ row|get:header.id|floatformat:2|default:"" }}
+                                    {% else %}
+                                        {{ row|get:header.id|default:"" }}
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="{{ table.headers|length|add:1 }}" class="text-center">No data available</td>
+                        </tr>
+                        {% endfor %}
+                        
+                        {# Table Total Row #}
+                        <tr class="table-active">
+                            <td colspan="{{ table.headers|length }}" class="text-end fw-bold">Total:</td>
+                            <td class="text-end fw-bold">{{ table.table.table_total|floatformat:2 }}</td>
+                        </tr>
+                        
+                        {# Grand Total Row (only in last table) #}
+                        {% if forloop.last %}
+                        <tr class="table-active grand-total-row">
+                            <td colspan="{{ table.headers|length }}" class="text-end fw-bold">Grand Total:</td>
+                            <td class="text-end fw-bold">{{ grandTotal|floatformat:2 }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+
+    <!-- Reference -->
+    <div class="">{{ customerDeatils.quotation_referrence |safe}}</div>
+
+    <!-- Note -->
+    <div class="section">
+        <strong>Note:</strong>
+        <p>{{ customerDeatils.quotation_note }}</p>
+    </div>
+
+    <!-- Bank Details -->
+    <div class="section">
+        <strong>Bank Details:</strong>
+        <p>{{ customerDeatils.quotation_bank_details |safe}}</p>
+    </div>
+
+    <!-- Signature -->
+    <div class="signature">
+        <p>{{ customerDeatils.quotation_signature  |safe }}</p>
+    </div>
+
+<a href="{% url 'download_quotation_doc' quotation_id=customerDeatils.id %}" class="btn btn-primary">
+    Download as Word Document
+</a>
+
+</body>
+</html>
+
 
 {% endblock %}

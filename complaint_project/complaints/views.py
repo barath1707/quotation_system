@@ -4,6 +4,7 @@ from django.contrib import messages
 from docx import Document
 import io
 from django.db.models import Max
+
 from .models import CustomerDetails, CustomerQuotation, QuotationTableInstance, QuotationTableHeader, QuotationTableValue, CustomerQuotationDetails
 from .forms import CustomerForm, QuotationForm, QuotationTableForm, TableHeaderForm, TableValueForm, CustomerQuotationDetailsForm
 
@@ -38,7 +39,7 @@ def add_cutomer_quotation(request):
             quotationFrmIns.customer_id = customerId
             quotationFrmIns.save()
             messages.success(request, "Quotation added successfully!")
-            return redirect(reverse('add_table')+ '?quotation_id='+ str(quotationId)+ '&table_id=0')
+            return redirect(reverse('add_table')+ '?quotation_id='+ str(quotationFrmIns.pk)+ '&table_id=0')
     else:
         quotationId = request.GET.get('quotation_id',0)
         quotationIns = CustomerQuotation.objects.get(pk=quotationId) if ValueCheck(quotationId) else None
@@ -50,6 +51,55 @@ def add_cutomer_quotation(request):
         'quotationId': quotationId,
         'customerId': customerId
     })
+
+def delete_quotation(request):
+    if 'customer_id' not in request.session:
+        return redirect('create_customer')
+    quotationId = request.POST.get('quotation_id',0)
+    if ValueCheck(quotationId):
+        # table deletion
+        isoTableInsIdList = QuotationTableInstance.objects.filter(quotation_id=quotationId).values_list('id', flat=True)
+        QuotationTableValue.objects.filter(table_id__in=isoTableInsIdList).delete
+        QuotationTableHeader.objects.filter(table_id__in=isoTableInsIdList).delete()
+        QuotationTableInstance.objects.filter(id__in=isoTableInsIdList).delete()
+        # Quotation deletion 
+        quotation = get_object_or_404(CustomerQuotation, pk=quotationId)
+        quotation.delete()
+        messages.success(request, "Quotation deleted successfully!")
+    
+    # Redirect to the quotation list or another appropriate page
+    return redirect(reverse('add_cutomer_quotation')+ '?quotation_id=0')
+
+def delete_customer(request):   
+    if 'customer_id' not in request.session:
+        return redirect('create_customer')
+    customerId = request.GET.get('customer_id',0)
+    if ValueCheck(customerId):
+        # Get all quotation IDs for the customer
+        quotationIdList = CustomerQuotation.objects.filter(customer_id=customerId).values_list('id', flat=True)
+
+        # Get all table instance IDs for these quotations
+        isoTableInsIdList = QuotationTableInstance.objects.filter(quotation_id__in=quotationIdList).values_list('id', flat=True)
+
+        # First delete the values that reference headers
+        QuotationTableValue.objects.filter(table_id__in=isoTableInsIdList).delete()
+
+        # Then delete the headers that reference tables
+        QuotationTableHeader.objects.filter(table_id__in=isoTableInsIdList).delete()
+
+        # Now it's safe to delete the table instances
+        QuotationTableInstance.objects.filter(id__in=isoTableInsIdList).delete()
+
+        # Delete quotation details
+        CustomerQuotationDetails.objects.filter(customer_id=customerId).delete()
+
+        # Finally delete the quotations and customer
+        CustomerQuotation.objects.filter(customer_id=customerId).delete()
+        CustomerDetails.objects.filter(id=customerId).delete()
+        messages.success(request, "Customer deleted successfully!")
+    
+    # Redirect to the customer list or another appropriate page
+    return redirect(reverse('all_customers'))
 
 # Step 3: Create Table
 def add_table(request):
@@ -66,7 +116,7 @@ def add_table(request):
             table.quotation_id = quotationId
             table.save()
             messages.success(request, "Table Name added successfully!")
-            return redirect(reverse('add_table')+ '?quotation_id='+ str(quotationId)+ '&table_id='+str(table.id)+'')
+            return redirect(reverse('add_table')+ '?quotation_id='+ str(quotationId)+ '&table_id=0')
     else:
         quotationId = request.GET.get('quotation_id',0)
         tableId = request.GET.get('table_id',0)
@@ -103,6 +153,7 @@ def add_table_headers(request):
         quotationId = request.GET.get('quotation_id',0)
         isoTableHeaderIns = QuotationTableHeader.objects.get(pk=fieldId) if ValueCheck(fieldId) else None
         form = TableHeaderForm(instance=isoTableHeaderIns)
+    isoAmountFieldId = QuotationTableHeader.objects.filter(field_type__field_type='Amount').exists()
     tableHeadersData = QuotationTableHeader.objects.filter(table_id=tableId)
     
     return render(request, 'add_table_headers.html', {
@@ -110,7 +161,8 @@ def add_table_headers(request):
         'tableHeadersData': tableHeadersData,
         'quotationId': quotationId,
         'tableId': tableId,
-        'fieldId': fieldId
+        'fieldId': fieldId,
+        "isoAmountFieldId": isoAmountFieldId
     })
 
 # Step 5: Create Table Values
@@ -129,12 +181,29 @@ def add_table_value(request):
         isoTableFieldValuesData = QuotationTableValue.objects.filter(field_id__in=tableFieldIdList)
         MaxOrder = isoTableFieldValuesData.aggregate(Max('row_id')).get('row_id__max')  or 0   
         isoTableFieldValues = isoTableFieldValuesData.filter(row_id=tableRowId) 
+        tableTotalvalue = QuotationTableInstance.objects.get(id=tableId).table_total or 0.0 if ValueCheck(tableId) else 0.0
+        isoAmountFieldId = tableHeaders.get(field_type__field_type='Amount').id
         for isoFieldId, isoFieldValue in zip(isoFieldIdList, isoFieldValueList):
             if isoFieldValue:
                 if isoTableFieldValues.exists():
-                    QuotationTableValue.objects.filter(field_id=isoFieldId, row_id=tableRowId).update(field_value=isoFieldValue)
+                    isoOldData = QuotationTableValue.objects.filter(field_id=isoFieldId, row_id=tableRowId).exists()
+                    if isoOldData:
+                        isoOldvalue = QuotationTableValue.objects.get(field_id=isoFieldId, row_id=tableRowId).field_value
+                        if isoOldvalue != isoFieldValue:
+                            QuotationTableValue.objects.filter(field_id=isoFieldId, row_id=tableRowId).update(field_value=isoFieldValue)
+                            if int(isoFieldId) == isoAmountFieldId:
+                                tableTotalvalue += float(int(isoFieldValue))
+                                QuotationTableInstance.objects.filter(id=tableId).update(table_total=tableTotalvalue)
+                    else:
+                        QuotationTableValue.objects.create(field_id=isoFieldId, field_value=isoFieldValue, row_id=tableRowId,table_id=tableId)
+                        if int(isoFieldId) == isoAmountFieldId:
+                            tableTotalvalue += float(int(isoFieldValue))
+                            QuotationTableInstance.objects.filter(id=tableId).update(table_total=tableTotalvalue)
                 else:
                     QuotationTableValue.objects.create(field_id=isoFieldId, field_value=isoFieldValue, row_id=MaxOrder+1,table_id=tableId)
+                    if int(isoFieldId) == isoAmountFieldId:
+                        tableTotalvalue += float(int(isoFieldValue))
+                        QuotationTableInstance.objects.filter(id=tableId).update(table_total=tableTotalvalue)
         messages.success(request, "Table Value added successfully!")
         return redirect(reverse('add_table_value')+ '?quotation_id='+ str(quotationId)+ '&table_id='+str(tableId)+'')
     else:
@@ -177,7 +246,7 @@ def add_complaint_details(request):
             return redirect('document_preview', quotation_id=quotationId)
     else:
         quotationId = request.GET.get('quotation_id', 0)
-        customerQuotationIns = CustomerQuotationDetails.objects.get(customer_id=customerId, quotation_id=quotationId)
+        customerQuotationIns = CustomerQuotationDetails.objects.get(customer_id=customerId, quotation_id=quotationId) if CustomerQuotationDetails.objects.filter(customer_id=customerId, quotation_id=quotationId).exists() else None 
         form = CustomerQuotationDetailsForm(instance=customerQuotationIns)
         tableId = request.GET.get('table_id',0)
         customerIns = CustomerDetails.objects.filter(id=customerId)
@@ -196,14 +265,182 @@ def add_complaint_details(request):
         isoContext['tableId'] = tableId
     return render(request, 'add_complaint_details.html', isoContext)
 
+from django.db.models import Sum
+import re
 def document_preview(request):
     # Get the complaint and related data
     customerId = request.session.get('customer_id') or request.GET.get('customer_id')
     quotationId = request.GET.get('quotation_id', 0)
+    isoContext={}
     quotationDetails = CustomerQuotation.objects.filter(customer_id=customerId)
     if quotationId:
         quotationDetails = quotationDetails.filter(id=quotationId)
+        customerIns = CustomerDetails.objects.get(id=customerId)
+        quotationIns = CustomerQuotation.objects.get(pk=quotationId)
+        tableIdList = QuotationTableInstance.objects.filter(quotation_id=quotationId).values_list('id', flat=True)
+        tableHeaders = QuotationTableHeader.objects.filter(table_id__in=tableIdList)
+        tableValues = QuotationTableValue.objects.filter(table_id__in=tableIdList,field_id__in=tableHeaders.values_list('id', flat=True))
+        tableheadervalues = view_quotation_tables(quotationId)
+        customerQuotationIns = CustomerQuotationDetails.objects.get(customer_id=customerId, quotation_id=quotationId)
+        grandTotal = QuotationTableInstance.objects.filter(quotation_id=quotationId).aggregate(total=Sum('table_total'))['total'] or 0.00
+        isoContext['customer'] = customerIns
+        isoContext['customerDeatils'] = customerQuotationIns
+        isoContext['customerIns'] = customerIns
+        isoContext['quotationIns'] = quotationIns
+        isoContext['tableHeaders'] = tableHeaders
+        isoContext['tableValues'] = tableValues
+        isoContext['quotationId'] = quotationId
+        isoContext['grandTotal'] = grandTotal
+        isoContext |= tableheadervalues
+        return render(request, 'document_preview.html', isoContext)
     return render(request, 'all_quotation.html', {'quotationDetails': quotationDetails})
+
+from docx import Document
+from docx.shared import Pt, Inches,RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from django.http import HttpResponse
+from io import BytesIO
+import html
+
+def download_quotation_doc(request, quotation_id):
+    # Get your data
+    customer_id = request.session.get('customer_id') or request.GET.get('customer_id')
+    customer_details = CustomerQuotationDetails.objects.get(
+        customer_id=customer_id, 
+        quotation_id=quotation_id
+    )
+    quotationDetails = CustomerQuotation.objects.get(id=quotation_id)
+    customer = CustomerDetails.objects.get(id=customer_id)
+    table_data = view_quotation_tables(quotation_id)
+    grand_total = QuotationTableInstance.objects.filter(
+        quotation_id=quotation_id
+    ).aggregate(total=Sum('table_total'))['total'] or 0.00
+
+    regexvalue = re.compile('<.*?>') 
+
+
+    # Create document
+    doc = Document()
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Arial'
+    font.size = Pt(10)
+    font.color.rgb = RGBColor(0, 0, 0)  # Force black color for all text
+
+    # Header section - remove <br> tags by using proper paragraph structure
+    date_para = doc.add_paragraph()
+    date_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    date_para.add_run(f"{customer_details.quotation_date}\n")
+    
+    to_para = doc.add_paragraph()
+    to_run = to_para.add_run("To:")
+    to_run.bold = True
+    
+    customer_para = doc.add_paragraph(customer.customer_name)
+    address_para = doc.add_paragraph(customer_details.quotation_address)
+
+    # Subject
+    subject_para = doc.add_paragraph()
+    subject_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subjectDetails = html.unescape(re.sub(regexvalue, '', customer_details.quotation_subject))
+    subject_run = subject_para.add_run(subjectDetails)
+    subject_run.bold = True
+    subject_run.underline = True
+
+    # Description
+    # doc.add_paragraph("Description:", style='Heading 2')
+    DescriptionDetails = html.unescape(re.sub(regexvalue, '', customer_details.quotation_description))
+    doc.add_paragraph(DescriptionDetails)
+
+    # Tables
+    for table in table_data['tables_data']:
+        doc.add_paragraph(table['table'].table_name, style='Heading 3')
+        
+        # Create table with headers and set column widths
+        word_table = doc.add_table(rows=1, cols=len(table['headers']) + 1)
+        word_table.style = 'Table Grid'
+        
+        # Set column widths - S.no column narrower
+        if len(word_table.columns) > 0:
+            word_table.columns[0].width = Inches(0.5)  # Narrow width for S.no
+        
+        hdr_cells = word_table.rows[0].cells
+        hdr_cells[0].text = 'S.no'
+        
+        # Set headers
+        for i, header in enumerate(table['headers'], 1):
+            hdr_cells[i].text = header.field_name
+            if header.field_type_id == 2:
+                hdr_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        
+        # Add rows
+        for row_idx, row in enumerate(table['rows'], 1):
+            row_cells = word_table.add_row().cells
+            row_cells[0].text = str(row_idx)
+            
+            for i, header in enumerate(table['headers'], 1):
+                value = row.get(header.id, "")
+                cell = row_cells[i]
+                
+                if header.field_type_id == 2:
+                    cell.text = f"{float(value or 0):.2f}"
+                    cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                else:
+                    cell.text = str(value)
+        
+        # Add totals
+        total_row = word_table.add_row()
+        total_cells = total_row.cells
+        total_cells[0].merge(total_cells[len(table['headers']) - 1])
+        total_paragraph = total_cells[0].paragraphs[0]
+        total_run = total_paragraph.add_run("Total")
+        total_run.bold = True
+        total_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        total_cells[-1].text = f"{float(table['table'].table_total or 0):.2f}"
+        total_cells[-1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        
+        # Grand total for last table
+        if table == table_data['tables_data'][-1]:
+            grand_row = word_table.add_row()
+            grand_cells = grand_row.cells
+            grand_cells[0].merge(grand_cells[len(table['headers']) - 1])
+            grand_total_paragraph = grand_cells[0].paragraphs[0]
+            grand_run = grand_total_paragraph.add_run("Grand Total")
+            grand_run.bold = True
+            grand_total_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            grand_cells[-1].text = f"{float(grand_total or 0):.2f}"
+            grand_cells[-1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+
+    # Footer sections - remove <br> tags
+    referrenceDetails = html.unescape(re.sub(regexvalue, '', customer_details.quotation_referrence))
+    doc.add_paragraph(referrenceDetails)
+    
+    doc.add_paragraph("Note:", style='Heading 2')
+    noteDetails = html.unescape(re.sub(regexvalue, '', customer_details.quotation_note))
+    doc.add_paragraph(noteDetails)
+    
+    doc.add_paragraph("Bank Details:", style='Heading 2')
+    bankDetails = html.unescape(re.sub(regexvalue, '', customer_details.quotation_bank_details))
+    doc.add_paragraph(bankDetails)
+    
+    # Signature
+    sign_para = doc.add_paragraph()
+    sign_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    signatureDetails = html.unescape(re.sub(regexvalue, '', customer_details.quotation_signature))
+    sign_run = sign_para.add_run(signatureDetails)
+    sign_run.bold = True
+
+    # Generate response
+    file_stream = BytesIO()
+    doc.save(file_stream)
+    file_stream.seek(0)
+    
+    response = HttpResponse(
+        file_stream.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+    response['Content-Disposition'] = f'attachment; filename={quotationDetails.quotation_name}.docx'
+    return response
 
 def generate_doc(request, complaint_id):
     # Get the complaint and related data

@@ -10,4 +10,7 @@ urlpatterns = [
     path('add_complaint_details', views.add_complaint_details, name='add_complaint_details'),
     path('all_customers', views.all_customers, name='all_customers'),
     path('document_preview', views.document_preview, name='document_preview'),
+    path('delete_quotation', views.delete_quotation, name='delete_quotation'),
+    path('delete_customer', views.delete_customer, name='delete_customer'),
+    path('quotation/<int:quotation_id>/download/', views.download_quotation_doc, name='download_quotation_doc'),
 ]
